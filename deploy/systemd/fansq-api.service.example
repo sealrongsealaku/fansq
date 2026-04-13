@@ -1,0 +1,16 @@
+[Unit]
+Description=FanSQ API Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/fansq
+ExecStart=/usr/bin/node /opt/fansq/apps/api-server/dist/main.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=API_PORT=3000
+
+[Install]
+WantedBy=multi-user.target
+

@@ -1,0 +1,15 @@
+[Unit]
+Description=FanSQ QQ Bot
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/fansq
+ExecStart=/usr/bin/node /opt/fansq/apps/qq-bot/dist/main.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+
