@@ -100,7 +100,8 @@ select {
 .card button,
 .modal-actions button,
 .icon-button,
-.reader-actions button {
+.reader-actions button,
+.mobile-submit-button {
   border: 0;
   border-radius: 999px;
   cursor: pointer;
@@ -175,7 +176,8 @@ select {
 .toolbar .active,
 .card button,
 .modal-actions button:last-child,
-.reader-actions button {
+.reader-actions button,
+.mobile-submit-button {
   color: #fff;
   background: #4f7b6d;
 }
@@ -327,6 +329,7 @@ select {
   justify-content: center;
   padding: 24px;
   background: rgba(36, 49, 42, 0.38);
+  z-index: 30;
 }
 
 .modal-card,
@@ -422,6 +425,10 @@ select {
   white-space: pre-wrap;
 }
 
+.mobile-submit-bar {
+  display: none;
+}
+
 .reader-fade-enter-active,
 .reader-fade-leave-active,
 .modal-fade-enter-active,
@@ -455,9 +462,9 @@ select {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .page {
-    padding-top: 40px;
+    padding: 24px 14px 104px;
   }
 
   .hero,
@@ -467,27 +474,205 @@ select {
     grid-template-columns: 1fr;
   }
 
+  .hero {
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .hero-panel {
+    display: none;
+  }
+
+  .hero-main,
+  .overview-card,
+  .card,
+  .empty-card {
+    border-radius: 22px;
+  }
+
+  .hero-main {
+    padding: 20px 18px;
+  }
+
   .hero h1 {
-    font-size: 38px;
+    font-size: 34px;
   }
 
   .intro {
+    margin-top: 14px;
+    font-size: 15px;
+    line-height: 1.75;
+  }
+
+  .hero-meta {
+    margin-top: 12px;
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .primary-cta {
+    min-height: 46px;
+    padding: 12px 18px;
     font-size: 16px;
   }
 
-  .card footer,
+  .cta-hint {
+    margin-top: 10px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .overview.compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .overview.compact .overview-card {
+    padding: 14px 14px 12px;
+  }
+
+  .overview.compact .overview-card strong {
+    margin-top: 6px;
+    font-size: 20px;
+    line-height: 1.1;
+  }
+
+  .overview.compact .overview-card span {
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .toolbar.mobile {
+    gap: 8px;
+  }
+
+  .toolbar.mobile .search-group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .toolbar.mobile .filter-group {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .toolbar.mobile .search-input {
+    grid-column: 1 / -1;
+    min-width: 0;
+    padding: 10px 13px;
+  }
+
+  .toolbar.mobile button {
+    width: 100%;
+    min-height: 36px;
+    padding: 6px 10px;
+    border-radius: 18px;
+    font-size: 15px;
+    line-height: 1.2;
+  }
+
+  .card-column {
+    gap: 14px;
+  }
+
+  .card,
+  .empty-card {
+    padding: 18px 16px;
+  }
+
+  .card h2 {
+    margin-bottom: 10px;
+    font-size: 20px;
+  }
+
+  .card p {
+    line-height: 1.75;
+  }
+
   .modal-actions,
   .reader-actions {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .modal-card,
-  .reader-card {
-    padding: 22px;
+  .card footer {
+    align-items: flex-start;
+  }
+
+  .card button {
+    width: auto;
+    min-width: 88px;
+    padding: 6px 12px;
+    background: rgba(79, 123, 109, 0.14);
+    color: #476458;
+    border: 1px solid rgba(79, 123, 109, 0.22);
+    box-shadow: none;
+  }
+
+  .reader-mask.mobile,
+  .modal-mask.mobile {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .mobile-reader-card,
+  .mobile-modal-card {
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    min-height: 100dvh;
+    border-radius: 0;
+    border: 0;
+    padding: 20px 16px 28px;
+  }
+
+  .mobile-reader-card {
+    overflow: auto;
+  }
+
+  .modal-header.sticky,
+  .reader-header.sticky {
+    position: sticky;
+    top: -20px;
+    z-index: 2;
+    padding: 6px 0 12px;
+    background: linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(255, 252, 247, 0.92));
+  }
+
+  .modal-header.sticky h2,
+  .reader-header.sticky h2 {
+    font-size: 28px;
+  }
+
+  .reader-content {
+    margin: 20px 0 24px;
   }
 
   .reader-content p {
     font-size: 16px;
+    line-height: 1.95;
+  }
+
+  .modal-actions.stacked button,
+  .reader-actions.stacked button {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  .mobile-submit-bar {
+    display: block;
+    position: fixed;
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    z-index: 20;
+  }
+
+  .mobile-submit-button {
+    width: 100%;
+    min-height: 46px;
+    box-shadow: 0 18px 40px rgba(79, 123, 109, 0.22);
   }
 }

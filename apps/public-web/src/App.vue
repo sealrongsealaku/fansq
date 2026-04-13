@@ -14,13 +14,15 @@
       </div>
       <div class="hero-panel">
         <button class="primary-cta" type="button" @click="openSubmitModal">
-          提交我的反思
+          {{ isMobileView ? "快速提交反思" : "提交我的反思" }}
         </button>
-        <p class="cta-hint">填写后会先进入审核，通过后才会展示在反思墙中。</p>
+        <p class="cta-hint">
+          {{ isMobileView ? "提交后等待审核，通过后展示。" : "填写后会先进入审核，通过后才会展示在反思墙中。" }}
+        </p>
       </div>
     </section>
 
-    <section class="overview">
+    <section class="overview" :class="{ compact: isMobileView }">
       <article class="overview-card">
         <span>展示内容</span>
         <strong>{{ summary.visible_count }}</strong>
@@ -35,7 +37,7 @@
       </article>
     </section>
 
-    <section class="toolbar">
+    <section class="toolbar" :class="{ mobile: isMobileView }">
       <div class="search-group">
         <input
           v-model="searchKeyword"
@@ -62,7 +64,11 @@
 
     <section class="cards">
       <template v-if="reflections.length">
-        <div v-for="(column, columnIndex) in reflectionColumns" :key="columnIndex" class="card-column">
+        <div
+          v-for="(column, columnIndex) in reflectionColumns"
+          :key="columnIndex"
+          class="card-column"
+        >
           <article
             v-for="item in column"
             :key="item.id"
@@ -82,7 +88,6 @@
               <div class="meta">
                 <span>{{ formatTime(item.submit_time) }}</span>
                 <span v-if="item.teaching_project_name">{{ item.teaching_project_name }}</span>
-                <span>{{ item.source_group_name || "网页表单提交" }}</span>
               </div>
               <button
                 type="button"
@@ -108,15 +113,26 @@
     </div>
 
     <transition name="reader-fade">
-      <div v-if="readerVisible && activeReflection" class="reader-mask" @click.self="closeReader">
+      <div
+        v-if="readerVisible && activeReflection"
+        class="reader-mask"
+        :class="{ mobile: isMobileView }"
+        @click.self="closeReader"
+      >
         <transition name="reader-panel">
-          <article v-if="readerVisible && activeReflection" class="reader-card">
-            <div class="reader-header">
+          <article
+            v-if="readerVisible && activeReflection"
+            class="reader-card"
+            :class="{ 'mobile-reader-card': isMobileView }"
+          >
+            <div class="reader-header" :class="{ sticky: isMobileView }">
               <div>
                 <p class="eyebrow">Reflection Reader</p>
                 <h2>{{ activeReflection.display_name }}</h2>
               </div>
-              <button type="button" class="icon-button" @click="closeReader">关闭</button>
+              <button type="button" class="icon-button" @click="closeReader">
+                {{ isMobileView ? "返回列表" : "关闭" }}
+              </button>
             </div>
 
             <div class="reader-meta">
@@ -127,14 +143,13 @@
               <span v-if="activeReflection.teaching_project_name">
                 {{ activeReflection.teaching_project_name }}
               </span>
-              <span>{{ activeReflection.source_group_name || "网页表单提交" }}</span>
             </div>
 
             <div class="reader-content">
               <p>{{ activeReflection.submit_content }}</p>
             </div>
 
-            <div class="reader-actions">
+            <div class="reader-actions" :class="{ stacked: isMobileView }">
               <button
                 type="button"
                 :disabled="activeReflection.liked || likingIds.has(activeReflection.id)"
@@ -149,12 +164,17 @@
     </transition>
 
     <transition name="modal-fade">
-      <div v-if="submitVisible" class="modal-mask" @click.self="closeSubmitModal">
-        <section class="modal-card">
-          <div class="modal-header">
+      <div
+        v-if="submitVisible"
+        class="modal-mask"
+        :class="{ mobile: isMobileView }"
+        @click.self="closeSubmitModal"
+      >
+        <section class="modal-card" :class="{ 'mobile-modal-card': isMobileView }">
+          <div class="modal-header" :class="{ sticky: isMobileView }">
             <div>
               <p class="eyebrow">Quick Submit</p>
-              <h2>提交你的课堂反思</h2>
+              <h2>{{ isMobileView ? "提交反思" : "提交你的课堂反思" }}</h2>
             </div>
             <button type="button" class="icon-button" @click="closeSubmitModal">关闭</button>
           </div>
@@ -205,7 +225,7 @@
               <span>前台匿名展示</span>
             </label>
 
-            <div class="modal-actions">
+            <div class="modal-actions" :class="{ stacked: isMobileView }">
               <button type="button" class="ghost" @click="closeSubmitModal">取消</button>
               <button type="submit" :disabled="submitLoading">
                 {{ submitLoading ? "提交中..." : "确认提交" }}
@@ -215,6 +235,12 @@
         </section>
       </div>
     </transition>
+
+    <div v-if="isMobileView" class="mobile-submit-bar">
+      <button type="button" class="mobile-submit-button" @click="openSubmitModal">
+        写下今天的反思
+      </button>
+    </div>
   </div>
 </template>
 
@@ -227,6 +253,9 @@ import {
   type ReflectionTypeOption,
   type TeachingProjectOption,
 } from "./api";
+
+const MOBILE_BREAKPOINT = 768;
+const TABLET_BREAKPOINT = 1160;
 
 const loading = ref(false);
 const submitLoading = ref(false);
@@ -268,6 +297,7 @@ const submitForm = reactive({
 });
 
 const hasMore = computed(() => reflections.value.length < pagination.total);
+const isMobileView = computed(() => viewportWidth.value < MOBILE_BREAKPOINT);
 const selectedReflectionType = computed(() =>
   reflectionTypes.value.find((item) => item.id === Number(submitForm.reflection_type_id)),
 );
@@ -275,8 +305,8 @@ const selectedTypeRequiresProject = computed(
   () => selectedReflectionType.value?.requires_project ?? false,
 );
 const columnCount = computed(() => {
-  if (viewportWidth.value < 768) return 1;
-  if (viewportWidth.value < 1160) return 2;
+  if (viewportWidth.value < MOBILE_BREAKPOINT) return 1;
+  if (viewportWidth.value < TABLET_BREAKPOINT) return 2;
   return 3;
 });
 const reflectionColumns = computed(() => {
@@ -318,15 +348,15 @@ function handleResize() {
 }
 
 function handleEscape(event: KeyboardEvent) {
-  if (event.key === "Escape") {
-    if (readerVisible.value) {
-      closeReader();
-      return;
-    }
+  if (event.key !== "Escape") return;
 
-    if (submitVisible.value) {
-      closeSubmitModal();
-    }
+  if (readerVisible.value) {
+    closeReader();
+    return;
+  }
+
+  if (submitVisible.value) {
+    closeSubmitModal();
   }
 }
 
@@ -377,6 +407,7 @@ async function fetchReflections() {
         keyword: appliedKeyword.value || undefined,
       },
     });
+
     reflections.value =
       pagination.page === 1 ? data.data.list : reflections.value.concat(data.data.list);
     Object.assign(pagination, data.data.pagination);
@@ -399,10 +430,12 @@ async function like(id: number) {
       target.like_count = data.data.like_count;
       target.liked = true;
     }
+
     if (activeReflection.value?.id === id) {
       activeReflection.value.like_count = data.data.like_count;
       activeReflection.value.liked = true;
     }
+
     summary.total_like_count += 1;
   } catch (error) {
     console.error(error);
@@ -463,6 +496,7 @@ async function submitReflection() {
       submit_content: submitForm.submit_content,
       is_anonymous: submitForm.is_anonymous,
     });
+
     resetSubmitForm();
     submitVisible.value = false;
     submitFeedback.value = "提交成功，内容会在管理员审核通过后展示。";
