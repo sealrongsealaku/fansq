@@ -44,6 +44,7 @@ export class ReflectionsService {
         ? {
             OR: [
               { studentName: { contains: query.keyword } },
+              { reflectionTitle: { contains: query.keyword } },
               { submitContent: { contains: query.keyword } },
               { displayName: { contains: query.keyword } },
               { reflectionType: { name: { contains: query.keyword } } },
@@ -82,6 +83,7 @@ export class ReflectionsService {
             OR: [
               { studentName: { contains: query.keyword } },
               { displayName: { contains: query.keyword } },
+              { reflectionTitle: { contains: query.keyword } },
               { submitContent: { contains: query.keyword } },
               { reflectionType: { name: { contains: query.keyword } } },
               { teachingProject: { name: { contains: query.keyword } } },
@@ -105,6 +107,7 @@ export class ReflectionsService {
     return {
       id: Number(item.id),
       student_name: item.studentName,
+      reflection_title: item.reflectionTitle,
       submit_content: item.submitContent,
       submit_time: item.submitTime.toISOString(),
       submit_channel: item.submitChannel,
@@ -496,6 +499,7 @@ export class ReflectionsService {
     const reflection = await this.prisma.reflection.create({
       data: {
         studentName: dto.student_name.trim(),
+        reflectionTitle: dto.reflection_title?.trim() || null,
         submitContent: content,
         submitTime: new Date(dto.submit_time),
         submitChannel: dto.submit_channel,
@@ -520,6 +524,7 @@ export class ReflectionsService {
 
   async submitFromPublicForm(dto: PublicSubmitReflectionDto) {
     const studentName = dto.student_name.trim();
+    const reflectionTitle = dto.reflection_title.trim();
     const content = dto.submit_content.trim();
 
     if (!studentName) {
@@ -530,11 +535,16 @@ export class ReflectionsService {
       throw new BadRequestException("submit_content_required");
     }
 
+    if (!reflectionTitle) {
+      throw new BadRequestException("reflection_title_required");
+    }
+
     await this.validatePublicReflectionMeta(dto.reflection_type_id, dto.teaching_project_id);
 
     const reflection = await this.prisma.reflection.create({
       data: {
         studentName,
+        reflectionTitle,
         submitContent: content,
         submitTime: new Date(),
         submitChannel: "website_form",
@@ -606,6 +616,7 @@ export class ReflectionsService {
     const header = [
       "ID",
       "提交人",
+      "反思标题",
       "反思类型",
       "支教项目",
       "展示名",
@@ -627,6 +638,7 @@ export class ReflectionsService {
     const rows = list.map((item) => [
       Number(item.id),
       item.studentName,
+      item.reflectionTitle ?? "",
       item.reflectionType?.name ?? "",
       item.teachingProject?.name ?? "",
       item.displayName ?? "",
@@ -701,6 +713,9 @@ export class ReflectionsService {
       data: {
         ...(dto.submit_content !== undefined
           ? { submitContent: dto.submit_content.trim() }
+          : {}),
+        ...(dto.reflection_title !== undefined
+          ? { reflectionTitle: dto.reflection_title.trim() || null }
           : {}),
         ...(dto.reflection_type_id !== undefined
           ? { reflectionTypeId: BigInt(dto.reflection_type_id) }
@@ -861,13 +876,12 @@ export class ReflectionsService {
     };
   }
 
-  async deleteReflection(id: number, adminUserId: number) {
+  async deleteReflection(id: number, _adminUserId: number) {
     const reflectionId = BigInt(id);
     const reflection = await this.prisma.reflection.findUnique({
       where: { id: reflectionId },
       select: {
         id: true,
-        submitContent: true,
       },
     });
 
@@ -876,12 +890,9 @@ export class ReflectionsService {
     }
 
     await this.prisma.$transaction([
-      this.prisma.auditLog.create({
-        data: {
+      this.prisma.reflectionLike.deleteMany({
+        where: {
           reflectionId,
-          adminUserId: BigInt(adminUserId),
-          action: "delete_reflection",
-          actionDetail: reflection.submitContent.slice(0, 200),
         },
       }),
       this.prisma.auditLog.deleteMany({
@@ -981,6 +992,7 @@ export class ReflectionsService {
           display_name: item.isAnonymous
             ? item.displayName || "匿名同学"
             : item.displayName || item.studentName,
+          reflection_title: item.reflectionTitle,
           submit_content: item.submitContent,
           submit_time: item.submitTime.toISOString(),
           source_group_name: item.sourceGroupName,

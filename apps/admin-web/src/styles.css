@@ -157,11 +157,23 @@ h1 {
 }
 
 .content-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  line-height: 1.75;
+}
+
+.content-title {
+  color: #24312b;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.content-preview span {
   display: -webkit-box;
   overflow: hidden;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-  line-height: 1.75;
 }
 
 .state-tags,

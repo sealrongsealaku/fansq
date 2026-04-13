@@ -4,6 +4,11 @@ import { IsBoolean, IsIn, IsInt, IsOptional, IsString, MaxLength, Min } from "cl
 export class UpdateReflectionDto {
   @IsOptional()
   @IsString()
+  @MaxLength(200)
+  reflection_title?: string;
+
+  @IsOptional()
+  @IsString()
   submit_content?: string;
 
   @IsOptional()

@@ -6,10 +6,18 @@ export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api",
 });
 
+function createVisitorId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `visitor_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function getVisitorId() {
   let visitorId = localStorage.getItem(visitorStorageKey);
   if (!visitorId) {
-    visitorId = crypto.randomUUID();
+    visitorId = createVisitorId();
     localStorage.setItem(visitorStorageKey, visitorId);
   }
   return visitorId;
@@ -33,6 +41,7 @@ export interface PublicSummaryResponse {
 export interface PublicReflection {
   id: number;
   display_name: string;
+  reflection_title: string | null;
   submit_content: string;
   submit_time: string;
   source_group_name: string | null;

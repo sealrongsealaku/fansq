@@ -43,7 +43,7 @@
           v-model="searchKeyword"
           class="search-input"
           type="text"
-          placeholder="搜索姓名、类型、项目或正文内容"
+          placeholder="搜索标题、姓名、类型、项目或正文内容"
           @keyup.enter="applySearch"
         />
         <button type="button" @click="applySearch">搜索</button>
@@ -72,6 +72,7 @@
           <article
             v-for="item in column"
             :key="item.id"
+            :ref="(element) => bindCardElement(item.id, element)"
             class="card"
             :class="{ featured: item.is_featured }"
             @click="openReader(item)"
@@ -82,7 +83,8 @@
                 {{ item.reflection_type_name }}
               </span>
             </div>
-            <h2>{{ item.display_name }}</h2>
+            <h2>{{ item.reflection_title || "未命名反思" }}</h2>
+            <p class="card-author">{{ item.display_name }}</p>
             <p>{{ item.submit_content }}</p>
             <footer>
               <div class="meta">
@@ -128,7 +130,8 @@
             <div class="reader-header" :class="{ sticky: isMobileView }">
               <div>
                 <p class="eyebrow">Reflection Reader</p>
-                <h2>{{ activeReflection.display_name }}</h2>
+                <h2>{{ activeReflection.reflection_title || "未命名反思" }}</h2>
+                <p class="reader-author">{{ activeReflection.display_name }}</p>
               </div>
               <button type="button" class="icon-button" @click="closeReader">
                 {{ isMobileView ? "返回列表" : "关闭" }}
@@ -180,6 +183,16 @@
           </div>
 
           <form class="submit-form" @submit.prevent="submitReflection">
+            <label>
+              <span>反思标题</span>
+              <input
+                v-model="submitForm.reflection_title"
+                type="text"
+                maxlength="200"
+                placeholder="给这条反思起一个清晰的标题"
+              />
+            </label>
+
             <label>
               <span>你的名字</span>
               <input
@@ -245,7 +258,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  watch,
+  type ComponentPublicInstance,
+} from "vue";
 import {
   apiClient,
   type PublicReflection,
@@ -271,6 +293,9 @@ const reflectionTypes = ref<ReflectionTypeOption[]>([]);
 const teachingProjects = ref<TeachingProjectOption[]>([]);
 const likingIds = reactive(new Set<number>());
 const viewportWidth = ref(typeof window === "undefined" ? 1280 : window.innerWidth);
+const measuredCardHeights = reactive<Record<number, number>>({});
+const cardElements = new Map<number, HTMLElement>();
+const cardObservers = new Map<number, ResizeObserver>();
 
 const pagination = reactive({
   page: 1,
@@ -289,6 +314,7 @@ const summary = reactive<PublicSummaryResponse>({
 });
 
 const submitForm = reactive({
+  reflection_title: "",
   student_name: "",
   reflection_type_id: "",
   teaching_project_id: "",
@@ -323,15 +349,20 @@ const reflectionColumns = computed(() => {
     }
 
     columns[targetIndex].push(item);
-    heights[targetIndex] += estimateCardWeight(item);
+    heights[targetIndex] += getCardWeight(item);
   }
 
   return columns;
 });
 
+function getCardWeight(item: PublicReflection) {
+  return measuredCardHeights[item.id] ?? estimateCardWeight(item) * 18;
+}
+
 function estimateCardWeight(item: PublicReflection) {
   const contentWeight = Math.ceil(item.submit_content.length / 48);
   const metaWeight =
+    (item.reflection_title ? 1 : 0) +
     (item.reflection_type_name ? 1 : 0) +
     (item.teaching_project_name ? 1 : 0) +
     (item.is_featured ? 1 : 0);
@@ -341,6 +372,55 @@ function estimateCardWeight(item: PublicReflection) {
 
 function formatTime(value: string) {
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
+}
+
+function syncCardHeight(id: number, element: HTMLElement) {
+  const nextHeight = Math.ceil(element.getBoundingClientRect().height);
+  if (nextHeight > 0 && measuredCardHeights[id] !== nextHeight) {
+    measuredCardHeights[id] = nextHeight;
+  }
+}
+
+function unbindCardElement(id: number) {
+  cardObservers.get(id)?.disconnect();
+  cardObservers.delete(id);
+  cardElements.delete(id);
+}
+
+function bindCardElement(id: number, element: Element | ComponentPublicInstance | null) {
+  const htmlElement = element instanceof HTMLElement ? element : null;
+
+  if (!htmlElement) {
+    unbindCardElement(id);
+    return;
+  }
+
+  const currentElement = cardElements.get(id);
+  if (currentElement === htmlElement) {
+    syncCardHeight(id, htmlElement);
+    return;
+  }
+
+  unbindCardElement(id);
+  cardElements.set(id, htmlElement);
+  syncCardHeight(id, htmlElement);
+
+  if (typeof ResizeObserver === "undefined") {
+    return;
+  }
+
+  const observer = new ResizeObserver(() => {
+    syncCardHeight(id, htmlElement);
+  });
+  observer.observe(htmlElement);
+  cardObservers.set(id, observer);
+}
+
+async function refreshCardMeasurements() {
+  await nextTick();
+  for (const [id, element] of cardElements) {
+    syncCardHeight(id, element);
+  }
 }
 
 function handleResize() {
@@ -361,6 +441,7 @@ function handleEscape(event: KeyboardEvent) {
 }
 
 function resetSubmitForm() {
+  submitForm.reflection_title = "";
   submitForm.student_name = "";
   submitForm.reflection_type_id = "";
   submitForm.teaching_project_id = "";
@@ -368,8 +449,15 @@ function resetSubmitForm() {
   submitForm.is_anonymous = false;
 }
 
-function openSubmitModal() {
+async function openSubmitModal() {
+  submitFeedback.value = "";
   submitVisible.value = true;
+  try {
+    await fetchSubmitMeta();
+  } catch (error) {
+    console.error(error);
+    submitFeedback.value = "提交选项加载失败，请刷新页面后重试。";
+  }
 }
 
 function closeSubmitModal() {
@@ -413,6 +501,7 @@ async function fetchReflections() {
     Object.assign(pagination, data.data.pagination);
   } finally {
     loading.value = false;
+    await refreshCardMeasurements();
   }
 }
 
@@ -470,6 +559,11 @@ async function loadMore() {
 }
 
 async function submitReflection() {
+  if (!submitForm.reflection_title.trim()) {
+    submitFeedback.value = "请先填写反思标题。";
+    return;
+  }
+
   if (!submitForm.student_name.trim() || !submitForm.submit_content.trim()) {
     submitFeedback.value = "请先填写姓名和反思内容。";
     return;
@@ -488,6 +582,7 @@ async function submitReflection() {
   submitLoading.value = true;
   try {
     await apiClient.post("/public/reflections/submit", {
+      reflection_title: submitForm.reflection_title,
       student_name: submitForm.student_name,
       reflection_type_id: Number(submitForm.reflection_type_id),
       teaching_project_id: submitForm.teaching_project_id
@@ -514,8 +609,37 @@ onMounted(async () => {
   await fetchAll();
 });
 
+watch(
+  () => reflections.value.map((item) => item.id),
+  async (ids) => {
+    const idSet = new Set(ids);
+
+    for (const existingId of Object.keys(measuredCardHeights).map(Number)) {
+      if (!idSet.has(existingId)) {
+        delete measuredCardHeights[existingId];
+      }
+    }
+
+    for (const existingId of Array.from(cardElements.keys())) {
+      if (!idSet.has(existingId)) {
+        unbindCardElement(existingId);
+      }
+    }
+
+    await refreshCardMeasurements();
+  },
+  { flush: "post" },
+);
+
+watch(columnCount, async () => {
+  await refreshCardMeasurements();
+});
+
 onBeforeUnmount(() => {
   document.removeEventListener("keydown", handleEscape);
   window.removeEventListener("resize", handleResize);
+  for (const id of Array.from(cardElements.keys())) {
+    unbindCardElement(id);
+  }
 });
 </script>

@@ -6,6 +6,11 @@ export class InternalSubmitReflectionDto {
   @MaxLength(100)
   student_name!: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  reflection_title?: string;
+
   @IsString()
   @IsNotEmpty()
   submit_content!: string;
@@ -33,4 +38,3 @@ export class InternalSubmitReflectionDto {
   @MaxLength(100)
   raw_message_id?: string;
 }
-

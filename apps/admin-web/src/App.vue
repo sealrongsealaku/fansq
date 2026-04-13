@@ -108,7 +108,10 @@
 
           <el-table-column label="内容摘要" min-width="360">
             <template #default="{ row }">
-              <div class="content-preview">{{ row.submit_content }}</div>
+              <div class="content-preview">
+                <strong class="content-title">{{ row.reflection_title || "未命名反思" }}</strong>
+                <span>{{ row.submit_content }}</span>
+              </div>
             </template>
           </el-table-column>
 
@@ -242,6 +245,10 @@
           </div>
 
           <el-form label-position="top">
+            <el-form-item label="反思标题">
+              <el-input v-model="detailForm.reflection_title" maxlength="200" placeholder="请输入反思标题" />
+            </el-form-item>
+
             <el-form-item label="反思类型">
               <el-select v-model="detailForm.reflection_type_id" placeholder="请选择反思类型">
                 <el-option v-for="item in reflectionTypes.filter((type) => type.is_active)" :key="item.id" :label="item.name" :value="item.id" />
@@ -307,6 +314,7 @@ interface TeachingProjectItem {
 interface ReflectionItem {
   id: number;
   student_name: string;
+  reflection_title: string | null;
   submit_content: string;
   submit_time: string;
   submit_channel: string;
@@ -372,6 +380,7 @@ const filters = reactive({
 });
 
 const detailForm = reactive({
+  reflection_title: "",
   reflection_type_id: undefined as number | undefined,
   teaching_project_id: undefined as number | undefined,
   submit_content: "",
@@ -557,6 +566,7 @@ async function openDetail(id: number) {
   const { data } = await apiClient.get(`/admin/reflections/${id}`);
   const nextDetail = data.data as ReflectionItem;
   detail.value = nextDetail;
+  detailForm.reflection_title = nextDetail.reflection_title || "";
   detailForm.reflection_type_id = nextDetail.reflection_type_id ?? undefined;
   detailForm.teaching_project_id = nextDetail.teaching_project_id ?? undefined;
   detailForm.submit_content = nextDetail.submit_content;
@@ -582,6 +592,7 @@ async function saveDetail() {
   saveLoading.value = true;
   try {
     await apiClient.patch(`/admin/reflections/${detail.value.id}`, {
+      reflection_title: detailForm.reflection_title,
       reflection_type_id: detailForm.reflection_type_id,
       teaching_project_id: detailTypeRequiresProject.value ? detailForm.teaching_project_id : null,
       submit_content: detailForm.submit_content,

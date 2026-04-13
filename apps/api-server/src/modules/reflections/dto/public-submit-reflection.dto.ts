@@ -19,6 +19,12 @@ export class PublicSubmitReflectionDto {
   @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsString()
   @MinLength(1)
+  @MaxLength(200)
+  reflection_title!: string;
+
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  @IsString()
+  @MinLength(1)
   @MaxLength(5000)
   submit_content!: string;
 

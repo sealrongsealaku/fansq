@@ -258,8 +258,18 @@ select {
 }
 
 .card h2 {
-  margin: 0 0 14px;
+  margin: 0 0 10px;
   font-size: 24px;
+  line-height: 1.3;
+}
+
+.card-author,
+.reader-author {
+  margin: 0 0 14px;
+  color: #33413a;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .card p,
@@ -359,6 +369,12 @@ select {
 .reader-header h2 {
   margin: 0;
   font-size: 32px;
+}
+
+.reader-author {
+  margin-top: 10px;
+  margin-bottom: 0;
+  font-size: 18px;
 }
 
 .submit-form {

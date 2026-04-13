@@ -22,6 +22,7 @@ model AdminUser {
 model Reflection {
   id               BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
   studentName      String           @map("student_name") @db.VarChar(100)
+  reflectionTitle  String?          @map("reflection_title") @db.VarChar(200)
   submitContent    String           @map("submit_content") @db.Text
   submitTime       DateTime         @map("submit_time") @db.DateTime(0)
   submitChannel    String           @default("qq_group_bot") @map("submit_channel") @db.VarChar(50)
