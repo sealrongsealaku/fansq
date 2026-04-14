@@ -86,7 +86,59 @@
       </section>
 
       <section class="panel table-panel">
-        <el-table :data="reflections" v-loading="loading" stripe>
+        <div v-if="isMobileView" v-loading="loading" class="mobile-review-list">
+          <article v-for="row in reflections" :key="row.id" class="mobile-review-card">
+            <div class="mobile-review-header">
+              <div class="mobile-review-title-group">
+                <strong class="submitter-name">{{ row.student_name }}</strong>
+                <span class="subtle-text">{{ formatSubmitTime(row.submit_time) }}</span>
+                <span class="subtle-text">{{ formatSubmitChannel(row.submit_channel) }}</span>
+              </div>
+              <div class="state-tags mobile-state-tags">
+                <el-tag size="small" :type="getAuditTagType(row.audit_status)">{{ formatAuditStatus(row.audit_status) }}</el-tag>
+                <el-tag size="small" effect="light" :type="getDisplayTagType(row.display_status)">{{ formatDisplayStatus(row.display_status) }}</el-tag>
+              </div>
+            </div>
+
+            <div class="mobile-review-meta">
+              <el-tag size="small" effect="plain">{{ row.reflection_type_name || "未分类" }}</el-tag>
+              <span class="category-project">{{ row.teaching_project_name || "无需项目" }}</span>
+              <el-tag v-if="row.is_top" size="small" type="danger" effect="plain">置顶</el-tag>
+              <el-tag v-if="row.is_featured" size="small" type="success" effect="plain">精选</el-tag>
+            </div>
+
+            <div class="mobile-review-content">
+              <strong class="content-title">{{ row.reflection_title || "未命名反思" }}</strong>
+              <p>{{ row.submit_content }}</p>
+            </div>
+
+            <div class="mobile-review-footer">
+              <span class="subtle-text">点赞 {{ row.like_count }}</span>
+              <div class="action-row mobile-action-row">
+                <el-button size="small" @click="openDetail(row.id)">详情</el-button>
+                <el-button v-if="row.audit_status === 'pending'" size="small" type="success" @click="approve(row.id)">通过</el-button>
+                <el-button v-if="row.audit_status === 'pending'" size="small" type="warning" @click="reject(row.id)">驳回</el-button>
+                <el-dropdown @command="handleMoreAction(row, $event)">
+                  <el-button size="small" plain>更多</el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="toggleVisibility">{{ row.display_status === "visible" ? "隐藏" : "展示" }}</el-dropdown-item>
+                      <el-dropdown-item command="toggleTop">{{ row.is_top ? "取消置顶" : "设为置顶" }}</el-dropdown-item>
+                      <el-dropdown-item command="toggleFeatured">{{ row.is_featured ? "取消精选" : "设为精选" }}</el-dropdown-item>
+                      <el-dropdown-item command="remove" divided>删除</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
+            </div>
+          </article>
+
+          <div v-if="!loading && !reflections.length" class="mobile-empty-state">
+            当前没有匹配的反思内容。
+          </div>
+        </div>
+
+        <el-table v-else :data="reflections" v-loading="loading" stripe>
           <el-table-column label="提交信息" min-width="190">
             <template #default="{ row }">
               <div class="submitter-cell">
@@ -284,9 +336,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { apiClient, clearAdminToken, getAdminToken, saveAdminToken } from "./api";
+
+const MOBILE_BREAKPOINT = 768;
 
 interface CurrentUser {
   id: number;
@@ -350,6 +404,7 @@ const teachingProjects = ref<TeachingProjectItem[]>([]);
 const reflectionTypeDrafts = ref<ReflectionTypeItem[]>([]);
 const teachingProjectDrafts = ref<TeachingProjectItem[]>([]);
 const detail = ref<ReflectionItem | null>(null);
+const viewportWidth = ref(typeof window === "undefined" ? 1280 : window.innerWidth);
 
 const stats = reactive({
   total_count: 0,
@@ -413,6 +468,7 @@ const detailSelectedType = computed(() =>
 const detailTypeRequiresProject = computed(
   () => detailSelectedType.value?.requires_project ?? false,
 );
+const isMobileView = computed(() => viewportWidth.value < MOBILE_BREAKPOINT);
 
 function cloneReflectionTypes(items: ReflectionTypeItem[]) {
   return items.map((item) => ({ ...item }));
@@ -441,6 +497,10 @@ function getExportFilename(header?: string | null) {
 
 function formatSubmitTime(value: string) {
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
+}
+
+function handleResize() {
+  viewportWidth.value = window.innerWidth;
 }
 
 function formatSubmitChannel(value: string) {
@@ -888,6 +948,7 @@ async function handleLogout() {
 }
 
 onMounted(async () => {
+  window.addEventListener("resize", handleResize);
   if (!isAuthenticated.value) {
     return;
   }
@@ -899,5 +960,9 @@ onMounted(async () => {
     clearAdminToken();
     isAuthenticated.value = false;
   }
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", handleResize);
 });
 </script>

@@ -190,6 +190,10 @@ h1 {
   margin-top: 18px;
 }
 
+.mobile-review-list {
+  display: none;
+}
+
 .meta-create-bar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 120px auto auto auto;
@@ -230,5 +234,106 @@ h1 {
 
   h1 {
     font-size: 30px;
+  }
+}
+
+@media (max-width: 767px) {
+  .shell {
+    padding: 20px 12px 56px;
+  }
+
+  .toolbar,
+  .table-panel {
+    padding: 14px;
+  }
+
+  .toolbar-head-actions,
+  .toolbar-actions {
+    width: 100%;
+  }
+
+  .toolbar-head-actions .el-button,
+  .toolbar-actions .el-button {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .table-panel :deep(.el-table) {
+    display: none;
+  }
+
+  .mobile-review-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .mobile-review-card {
+    padding: 14px;
+    border-radius: 18px;
+    background: rgba(247, 250, 247, 0.9);
+    border: 1px solid rgba(153, 171, 164, 0.24);
+  }
+
+  .mobile-review-header,
+  .mobile-review-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .mobile-review-title-group,
+  .mobile-review-meta,
+  .mobile-review-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .mobile-review-meta {
+    margin-top: 12px;
+  }
+
+  .mobile-review-content {
+    margin-top: 12px;
+  }
+
+  .mobile-review-content p {
+    margin: 0;
+    color: #3b4543;
+    line-height: 1.7;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+  }
+
+  .mobile-state-tags,
+  .mobile-action-row {
+    width: 100%;
+  }
+
+  .mobile-action-row .el-button {
+    margin-left: 0 !important;
+  }
+
+  .mobile-empty-state {
+    padding: 20px 14px;
+    border-radius: 16px;
+    color: #5f6667;
+    background: rgba(247, 250, 247, 0.9);
+    text-align: center;
+  }
+
+  .pagination-bar {
+    justify-content: center;
+  }
+
+  .pagination-bar :deep(.el-pagination) {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .pagination-bar :deep(.el-pagination__sizes) {
+    margin-right: 0;
   }
 }
