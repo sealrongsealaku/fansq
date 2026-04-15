@@ -38,12 +38,14 @@ model Reflection {
   isAnonymous      Boolean          @default(false) @map("is_anonymous")
   displayName      String?          @map("display_name") @db.VarChar(100)
   likeCount        Int              @default(0) @map("like_count") @db.UnsignedInt
+  viewCount        Int              @default(0) @map("view_count") @db.UnsignedInt
   remarks          String?          @db.Text
   createdAt        DateTime         @default(now()) @map("created_at") @db.DateTime(0)
   updatedAt        DateTime         @updatedAt @map("updated_at") @db.DateTime(0)
   reflectionType   ReflectionType?  @relation(fields: [reflectionTypeId], references: [id])
   teachingProject  TeachingProject? @relation(fields: [teachingProjectId], references: [id])
   likes            ReflectionLike[]
+  views            ReflectionView[]
   auditLogs        AuditLog[]
 
   @@index([submitTime], map: "idx_reflection_submit_time")
@@ -56,6 +58,7 @@ model Reflection {
   @@index([isTop, submitTime], map: "idx_reflection_public_sort")
   @@index([auditStatus, displayStatus, isFeatured], map: "idx_reflection_public_filter")
   @@index([likeCount], map: "idx_reflection_like_count")
+  @@index([viewCount], map: "idx_reflection_view_count")
   @@index([rawMessageId], map: "idx_reflection_raw_message_id")
   @@map("reflection")
 }
@@ -100,6 +103,28 @@ model ReflectionLike {
   @@index([visitorId], map: "idx_reflection_like_visitor_id")
   @@index([createdAt], map: "idx_reflection_like_created_at")
   @@map("reflection_like")
+}
+
+model ReflectionView {
+  id           BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  reflectionId BigInt     @map("reflection_id") @db.UnsignedBigInt
+  visitorId    String     @map("visitor_id") @db.VarChar(100)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.DateTime(0)
+  reflection   Reflection @relation(fields: [reflectionId], references: [id], onDelete: Cascade)
+
+  @@index([reflectionId, visitorId, createdAt], map: "idx_reflection_view_dedupe")
+  @@index([visitorId], map: "idx_reflection_view_visitor_id")
+  @@index([createdAt], map: "idx_reflection_view_created_at")
+  @@map("reflection_view")
+}
+
+model PublicDisplaySetting {
+  id            Int      @id @db.UnsignedInt
+  showViewCount Boolean  @default(false) @map("show_view_count")
+  createdAt     DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.DateTime(0)
+
+  @@map("public_display_setting")
 }
 
 model AuditLog {

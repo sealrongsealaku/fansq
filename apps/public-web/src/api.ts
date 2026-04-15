@@ -36,6 +36,8 @@ export interface PublicSummaryResponse {
   visible_count: number;
   featured_count: number;
   total_like_count: number;
+  total_view_count: number;
+  show_view_count: boolean;
 }
 
 export interface PublicReflection {
@@ -50,6 +52,7 @@ export interface PublicReflection {
   is_featured: boolean;
   is_top: boolean;
   like_count: number;
+  view_count: number;
   liked: boolean;
 }
 

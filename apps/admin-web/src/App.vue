@@ -38,6 +38,7 @@
         <article class="stat-card"><span>待审核</span><strong>{{ stats.pending_count }}</strong></article>
         <article class="stat-card"><span>已通过</span><strong>{{ stats.approved_count }}</strong></article>
         <article class="stat-card"><span>已展示</span><strong>{{ stats.visible_count }}</strong></article>
+        <article class="stat-card"><span>总阅读</span><strong>{{ stats.total_view_count }}</strong></article>
       </section>
 
       <section class="toolbar panel">
@@ -47,6 +48,14 @@
             <h2>内容筛选</h2>
           </div>
           <div class="toolbar-head-actions">
+            <el-switch
+              v-model="displaySettings.show_view_count"
+              inline-prompt
+              active-text="前台显示阅读量"
+              inactive-text="隐藏阅读量"
+              :loading="displaySettingsLoading"
+              @change="saveDisplaySettings"
+            />
             <el-button @click="openReflectionTypeDialog">管理反思类型</el-button>
             <el-button @click="openTeachingProjectDialog">管理支教项目</el-button>
           </div>
@@ -113,7 +122,10 @@
             </div>
 
             <div class="mobile-review-footer">
-              <span class="subtle-text">点赞 {{ row.like_count }}</span>
+              <div class="mobile-review-metrics">
+                <span class="subtle-text">点赞 {{ row.like_count }}</span>
+                <span class="subtle-text">阅读 {{ row.view_count }}</span>
+              </div>
               <div class="action-row mobile-action-row">
                 <el-button size="small" @click="openDetail(row.id)">详情</el-button>
                 <el-button v-if="row.audit_status === 'pending'" size="small" type="success" @click="approve(row.id)">通过</el-button>
@@ -179,6 +191,7 @@
           </el-table-column>
 
           <el-table-column prop="like_count" label="点赞数" width="90" />
+          <el-table-column prop="view_count" label="阅读数" width="90" />
 
           <el-table-column label="操作" width="240" fixed="right">
             <template #default="{ row }">
@@ -293,7 +306,10 @@
               <p class="eyebrow">Reflection Detail</p>
               <h2>{{ detail.student_name }}</h2>
             </div>
-            <el-tag :type="getAuditTagType(detail.audit_status)">{{ formatAuditStatus(detail.audit_status) }}</el-tag>
+            <div class="detail-header-actions">
+              <el-tag :type="getAuditTagType(detail.audit_status)">{{ formatAuditStatus(detail.audit_status) }}</el-tag>
+              <el-button plain @click="closeDetail">{{ isMobileView ? "返回列表" : "关闭" }}</el-button>
+            </div>
           </div>
 
           <el-form label-position="top">
@@ -379,6 +395,7 @@ interface ReflectionItem {
   audit_status: "pending" | "approved" | "rejected";
   display_status: "hidden" | "visible";
   like_count: number;
+  view_count: number;
   display_name: string | null;
   is_featured: boolean;
   is_top: boolean;
@@ -393,6 +410,7 @@ const loginLoading = ref(false);
 const loading = ref(false);
 const saveLoading = ref(false);
 const exportLoading = ref(false);
+const displaySettingsLoading = ref(false);
 const detailVisible = ref(false);
 const reflectionTypeDialogVisible = ref(false);
 const teachingProjectDialogVisible = ref(false);
@@ -412,6 +430,11 @@ const stats = reactive({
   approved_count: 0,
   visible_count: 0,
   featured_count: 0,
+  total_view_count: 0,
+});
+
+const displaySettings = reactive({
+  show_view_count: false,
 });
 
 const pagination = reactive({
@@ -544,6 +567,10 @@ function resetProjectCreateForm() {
   projectCreateForm.sort_order = 0;
 }
 
+function closeDetail() {
+  detailVisible.value = false;
+}
+
 async function handleLogin() {
   if (!loginForm.username || !loginForm.password) {
     ElMessage.warning("请输入用户名和密码");
@@ -573,6 +600,11 @@ async function fetchCurrentUser() {
 async function fetchStats() {
   const { data } = await apiClient.get("/admin/stats/overview");
   Object.assign(stats, data.data);
+}
+
+async function fetchDisplaySettings() {
+  const { data } = await apiClient.get("/admin/reflections/meta/display-settings");
+  Object.assign(displaySettings, data.data);
 }
 
 async function fetchReflectionMeta() {
@@ -609,7 +641,29 @@ async function fetchReflections() {
 
 async function refreshAll() {
   if (!isAuthenticated.value) return;
-  await Promise.all([fetchCurrentUser(), fetchStats(), fetchReflections(), fetchReflectionMeta()]);
+  await Promise.all([
+    fetchCurrentUser(),
+    fetchStats(),
+    fetchReflections(),
+    fetchReflectionMeta(),
+    fetchDisplaySettings(),
+  ]);
+}
+
+async function saveDisplaySettings() {
+  displaySettingsLoading.value = true;
+  try {
+    await apiClient.patch("/admin/reflections/meta/display-settings", {
+      show_view_count: displaySettings.show_view_count,
+    });
+    ElMessage.success("前台阅读量显示设置已更新");
+  } catch (error) {
+    console.error(error);
+    displaySettings.show_view_count = !displaySettings.show_view_count;
+    ElMessage.error("更新阅读量显示设置失败");
+  } finally {
+    displaySettingsLoading.value = false;
+  }
 }
 
 async function openReflectionTypeDialog() {

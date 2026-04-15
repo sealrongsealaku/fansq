@@ -42,6 +42,14 @@ export class ReflectionsPublicController {
     return this.reflectionsService.likeReflection(id, visitorId);
   }
 
+  @Post(":id/view")
+  view(
+    @Param("id", ParseIntPipe) id: number,
+    @Headers("x-visitor-id") visitorId?: string,
+  ) {
+    return this.reflectionsService.recordReflectionView(id, visitorId);
+  }
+
   @Get(":id/like-status")
   likeStatus(
     @Param("id", ParseIntPipe) id: number,

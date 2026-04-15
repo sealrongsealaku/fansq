@@ -20,7 +20,20 @@ import { UpsertTeachingProjectDto } from "./dto/upsert-teaching-project.dto";
 
 @Injectable()
 export class ReflectionsService {
+  private readonly publicDisplaySettingId = 1;
+  private readonly reflectionViewDedupMinutes = 30;
+
   constructor(private readonly prisma: PrismaService) {}
+
+  private async ensurePublicDisplaySetting() {
+    return this.prisma.publicDisplaySetting.upsert({
+      where: { id: this.publicDisplaySettingId },
+      update: {},
+      create: {
+        id: this.publicDisplaySettingId,
+      },
+    });
+  }
 
   private async createAuditLog(
     reflectionId: bigint,
@@ -125,6 +138,7 @@ export class ReflectionsService {
       is_anonymous: item.isAnonymous,
       display_name: item.displayName,
       like_count: item.likeCount,
+      view_count: item.viewCount,
       remarks: item.remarks,
       created_at: item.createdAt.toISOString(),
       updated_at: item.updatedAt.toISOString(),
@@ -251,6 +265,39 @@ export class ReflectionsService {
           code: item.code,
           sort_order: item.sortOrder,
         })),
+      },
+    };
+  }
+
+  async getAdminPublicDisplaySettings() {
+    const setting = await this.ensurePublicDisplaySetting();
+
+    return {
+      success: true,
+      message: "ok",
+      data: {
+        show_view_count: setting.showViewCount,
+      },
+    };
+  }
+
+  async updateAdminPublicDisplaySettings(showViewCount: boolean) {
+    const setting = await this.prisma.publicDisplaySetting.upsert({
+      where: { id: this.publicDisplaySettingId },
+      update: {
+        showViewCount,
+      },
+      create: {
+        id: this.publicDisplaySettingId,
+        showViewCount,
+      },
+    });
+
+    return {
+      success: true,
+      message: "updated",
+      data: {
+        show_view_count: setting.showViewCount,
       },
     };
   }
@@ -635,6 +682,8 @@ export class ReflectionsService {
       "更新时间",
     ];
 
+    header.splice(16, 0, "view_count");
+
     const rows = list.map((item) => [
       Number(item.id),
       item.studentName,
@@ -652,6 +701,7 @@ export class ReflectionsService {
       item.isFeatured ? "是" : "否",
       item.isTop ? "是" : "否",
       item.likeCount,
+      item.viewCount,
       item.remarks ?? "",
       item.createdAt.toISOString(),
       item.updatedAt.toISOString(),
@@ -895,6 +945,11 @@ export class ReflectionsService {
           reflectionId,
         },
       }),
+      this.prisma.reflectionView.deleteMany({
+        where: {
+          reflectionId,
+        },
+      }),
       this.prisma.auditLog.deleteMany({
         where: {
           reflectionId,
@@ -915,7 +970,14 @@ export class ReflectionsService {
   }
 
   async getOverviewStats() {
-    const [totalCount, pendingCount, approvedCount, visibleCount, featuredCount] =
+    const [
+      totalCount,
+      pendingCount,
+      approvedCount,
+      visibleCount,
+      featuredCount,
+      totalViewCount,
+    ] =
       await this.prisma.$transaction([
         this.prisma.reflection.count(),
         this.prisma.reflection.count({
@@ -930,6 +992,9 @@ export class ReflectionsService {
         this.prisma.reflection.count({
           where: { isFeatured: true },
         }),
+        this.prisma.reflection.aggregate({
+          _sum: { viewCount: true },
+        }),
       ]);
 
     return {
@@ -941,6 +1006,7 @@ export class ReflectionsService {
         approved_count: approvedCount,
         visible_count: visibleCount,
         featured_count: featuredCount,
+        total_view_count: totalViewCount._sum.viewCount ?? 0,
       },
     };
   }
@@ -1001,6 +1067,7 @@ export class ReflectionsService {
           is_featured: item.isFeatured,
           is_top: item.isTop,
           like_count: item.likeCount,
+          view_count: item.viewCount,
           liked: likedIdSet.has(Number(item.id)),
         })),
         pagination: {
@@ -1013,7 +1080,8 @@ export class ReflectionsService {
   }
 
   async getPublicSummary() {
-    const [visibleCount, featuredCount, totalLikes] = await this.prisma.$transaction([
+    const setting = await this.ensurePublicDisplaySetting();
+    const [visibleCount, featuredCount, totalLikes, totalViews] = await this.prisma.$transaction([
       this.prisma.reflection.count({
         where: { auditStatus: "approved", displayStatus: "visible" },
       }),
@@ -1022,6 +1090,10 @@ export class ReflectionsService {
       }),
       this.prisma.reflection.aggregate({
         _sum: { likeCount: true },
+        where: { auditStatus: "approved", displayStatus: "visible" },
+      }),
+      this.prisma.reflection.aggregate({
+        _sum: { viewCount: true },
         where: { auditStatus: "approved", displayStatus: "visible" },
       }),
     ]);
@@ -1037,6 +1109,89 @@ export class ReflectionsService {
         visible_count: visibleCount,
         featured_count: featuredCount,
         total_like_count: totalLikes._sum.likeCount ?? 0,
+        total_view_count: totalViews._sum.viewCount ?? 0,
+        show_view_count: setting.showViewCount,
+      },
+    };
+  }
+
+  async recordReflectionView(id: number, visitorId?: string) {
+    const reflectionId = BigInt(id);
+    const reflection = await this.prisma.reflection.findFirst({
+      where: {
+        id: reflectionId,
+        auditStatus: "approved",
+        displayStatus: "visible",
+      },
+      select: {
+        id: true,
+        viewCount: true,
+      },
+    });
+
+    if (!reflection) {
+      throw new NotFoundException("reflection_not_found");
+    }
+
+    const cutoff = new Date(
+      Date.now() - this.reflectionViewDedupMinutes * 60 * 1000,
+    );
+
+    if (visitorId) {
+      const recentView = await this.prisma.reflectionView.findFirst({
+        where: {
+          reflectionId,
+          visitorId,
+          createdAt: {
+            gte: cutoff,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (recentView) {
+        return {
+          success: true,
+          message: "ok",
+          data: {
+            id,
+            view_count: reflection.viewCount,
+            counted: false,
+          },
+        };
+      }
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (visitorId) {
+        await tx.reflectionView.create({
+          data: {
+            reflectionId,
+            visitorId,
+          },
+        });
+      }
+
+      return tx.reflection.update({
+        where: { id: reflectionId },
+        data: {
+          viewCount: {
+            increment: 1,
+          },
+        },
+        select: {
+          viewCount: true,
+        },
+      });
+    });
+
+    return {
+      success: true,
+      message: "viewed",
+      data: {
+        id,
+        view_count: updated.viewCount,
+        counted: true,
       },
     };
   }

@@ -90,6 +90,7 @@
               <div class="meta">
                 <span>{{ formatTime(item.submit_time) }}</span>
                 <span v-if="item.teaching_project_name">{{ item.teaching_project_name }}</span>
+                <span v-if="summary.show_view_count">阅读 {{ item.view_count }}</span>
               </div>
               <button
                 type="button"
@@ -146,6 +147,7 @@
               <span v-if="activeReflection.teaching_project_name">
                 {{ activeReflection.teaching_project_name }}
               </span>
+              <span v-if="summary.show_view_count">阅读 {{ activeReflection.view_count }}</span>
             </div>
 
             <div class="reader-content">
@@ -311,6 +313,8 @@ const summary = reactive<PublicSummaryResponse>({
   visible_count: 0,
   featured_count: 0,
   total_like_count: 0,
+  total_view_count: 0,
+  show_view_count: false,
 });
 
 const submitForm = reactive({
@@ -365,6 +369,7 @@ function estimateCardWeight(item: PublicReflection) {
     (item.reflection_title ? 1 : 0) +
     (item.reflection_type_name ? 1 : 0) +
     (item.teaching_project_name ? 1 : 0) +
+    (summary.show_view_count ? 1 : 0) +
     (item.is_featured ? 1 : 0);
 
   return 8 + contentWeight + metaWeight;
@@ -464,9 +469,10 @@ function closeSubmitModal() {
   submitVisible.value = false;
 }
 
-function openReader(item: PublicReflection) {
+async function openReader(item: PublicReflection) {
   activeReflection.value = item;
   readerVisible.value = true;
+  await recordView(item.id);
 }
 
 function closeReader() {
@@ -508,6 +514,26 @@ async function fetchReflections() {
 async function fetchAll() {
   pagination.page = 1;
   await Promise.all([fetchSummary(), fetchReflections(), fetchSubmitMeta()]);
+}
+
+async function recordView(id: number) {
+  try {
+    const { data } = await apiClient.post(`/public/reflections/${id}/view`);
+    const target = reflections.value.find((item) => item.id === id);
+    if (target) {
+      target.view_count = data.data.view_count;
+    }
+
+    if (activeReflection.value?.id === id) {
+      activeReflection.value.view_count = data.data.view_count;
+    }
+
+    if (data.data.counted) {
+      summary.total_view_count += 1;
+    }
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 async function like(id: number) {
@@ -634,6 +660,13 @@ watch(
 watch(columnCount, async () => {
   await refreshCardMeasurements();
 });
+
+watch(
+  () => summary.show_view_count,
+  async () => {
+    await refreshCardMeasurements();
+  },
+);
 
 onBeforeUnmount(() => {
   document.removeEventListener("keydown", handleEscape);

@@ -18,6 +18,7 @@ import { AdminListReflectionsDto } from "./dto/admin-list-reflections.dto";
 import { ApproveReflectionDto } from "./dto/approve-reflection.dto";
 import { RejectReflectionDto } from "./dto/reject-reflection.dto";
 import { SetVisibilityDto } from "./dto/set-visibility.dto";
+import { UpdatePublicDisplaySettingDto } from "./dto/update-public-display-setting.dto";
 import { UpdateReflectionDto } from "./dto/update-reflection.dto";
 import { UpsertReflectionTypeDto } from "./dto/upsert-reflection-type.dto";
 import { UpsertTeachingProjectDto } from "./dto/upsert-teaching-project.dto";
@@ -59,6 +60,16 @@ export class ReflectionsAdminController {
   @Get("meta/teaching-projects")
   listTeachingProjects() {
     return this.reflectionsService.getAdminTeachingProjects();
+  }
+
+  @Get("meta/display-settings")
+  getDisplaySettings() {
+    return this.reflectionsService.getAdminPublicDisplaySettings();
+  }
+
+  @Patch("meta/display-settings")
+  updateDisplaySettings(@Body() dto: UpdatePublicDisplaySettingDto) {
+    return this.reflectionsService.updateAdminPublicDisplaySettings(dto.show_view_count);
   }
 
   @Post("meta/teaching-projects")
