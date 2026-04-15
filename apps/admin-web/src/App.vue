@@ -286,7 +286,7 @@
         </el-table>
       </el-dialog>
 
-      <el-drawer v-model="detailVisible" size="620px" :with-header="false">
+      <el-drawer v-model="detailVisible" :size="isMobileView ? '100%' : '620px'" :with-header="false">
         <div v-if="detail" class="detail">
           <div class="detail-header">
             <div>

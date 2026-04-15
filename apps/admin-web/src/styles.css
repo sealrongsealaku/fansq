@@ -336,4 +336,36 @@ h1 {
   .pagination-bar :deep(.el-pagination__sizes) {
     margin-right: 0;
   }
+
+  .detail {
+    padding: 0;
+  }
+
+  .detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .detail :deep(.el-form-item) {
+    margin-bottom: 16px;
+  }
+
+  .detail :deep(.el-select),
+  .detail :deep(.el-input),
+  .detail :deep(.el-textarea) {
+    width: 100%;
+  }
+
+  .detail :deep(.el-textarea__inner) {
+    min-height: 120px;
+  }
+
+  .switches {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .switches :deep(.el-switch) {
+    margin-right: 0;
+  }
 }
