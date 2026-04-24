@@ -512,6 +512,39 @@ function extractApiMessage(error: unknown) {
   return typeof message === "string" ? message : "";
 }
 
+function isRequestCanceled(error: unknown) {
+  return (
+    (error as { message?: string })?.message === "cancel" ||
+    (error as { message?: string })?.message === "close" ||
+    error === "cancel" ||
+    error === "close" ||
+    (error as { code?: string })?.code === "ERR_CANCELED"
+  );
+}
+
+function buildActionErrorMessage(
+  error: unknown,
+  fallback: string,
+  overrides: Record<string, string> = {},
+) {
+  const apiMessage = extractApiMessage(error);
+  if (apiMessage && overrides[apiMessage]) {
+    return overrides[apiMessage];
+  }
+
+  const responseStatus = (error as { response?: { status?: number } })?.response?.status;
+  if (responseStatus && responseStatus >= 500) {
+    return "服务暂时无响应，请刷新后重试";
+  }
+
+  const errorCode = (error as { code?: string })?.code;
+  if (errorCode === "ECONNABORTED") {
+    return "请求超时，请稍后重试";
+  }
+
+  return apiMessage || fallback;
+}
+
 function getExportFilename(header?: string | null) {
   if (!header) return "fansq-reflections.csv";
   const matched = header.match(/filename=\"?([^\"]+)\"?/i);
@@ -677,19 +710,24 @@ async function openTeachingProjectDialog() {
 }
 
 async function openDetail(id: number) {
-  const { data } = await apiClient.get(`/admin/reflections/${id}`);
-  const nextDetail = data.data as ReflectionItem;
-  detail.value = nextDetail;
-  detailForm.reflection_title = nextDetail.reflection_title || "";
-  detailForm.reflection_type_id = nextDetail.reflection_type_id ?? undefined;
-  detailForm.teaching_project_id = nextDetail.teaching_project_id ?? undefined;
-  detailForm.submit_content = nextDetail.submit_content;
-  detailForm.display_name = nextDetail.display_name || "";
-  detailForm.remarks = nextDetail.remarks || "";
-  detailForm.is_featured = nextDetail.is_featured;
-  detailForm.is_top = nextDetail.is_top;
-  detailForm.is_anonymous = nextDetail.is_anonymous;
-  detailVisible.value = true;
+  try {
+    const { data } = await apiClient.get(`/admin/reflections/${id}`);
+    const nextDetail = data.data as ReflectionItem;
+    detail.value = nextDetail;
+    detailForm.reflection_title = nextDetail.reflection_title || "";
+    detailForm.reflection_type_id = nextDetail.reflection_type_id ?? undefined;
+    detailForm.teaching_project_id = nextDetail.teaching_project_id ?? undefined;
+    detailForm.submit_content = nextDetail.submit_content;
+    detailForm.display_name = nextDetail.display_name || "";
+    detailForm.remarks = nextDetail.remarks || "";
+    detailForm.is_featured = nextDetail.is_featured;
+    detailForm.is_top = nextDetail.is_top;
+    detailForm.is_anonymous = nextDetail.is_anonymous;
+    detailVisible.value = true;
+  } catch (error) {
+    console.error(error);
+    ElMessage.error(buildActionErrorMessage(error, "加载详情失败"));
+  }
 }
 
 async function saveDetail() {
@@ -728,15 +766,25 @@ async function saveDetail() {
 }
 
 async function approve(id: number) {
-  await apiClient.post(`/admin/reflections/${id}/approve`, { display_status: "visible" });
-  ElMessage.success("已审核通过并展示");
-  await refreshAll();
+  try {
+    await apiClient.post(`/admin/reflections/${id}/approve`, { display_status: "visible" });
+    ElMessage.success("已审核通过并展示");
+    await refreshAll();
+  } catch (error) {
+    console.error(error);
+    ElMessage.error(buildActionErrorMessage(error, "审核失败，请稍后重试"));
+  }
 }
 
 async function reject(id: number) {
-  await apiClient.post(`/admin/reflections/${id}/reject`, { remarks: "管理员驳回" });
-  ElMessage.success("已驳回");
-  await refreshAll();
+  try {
+    await apiClient.post(`/admin/reflections/${id}/reject`, { remarks: "管理员驳回" });
+    ElMessage.success("已驳回");
+    await refreshAll();
+  } catch (error) {
+    console.error(error);
+    ElMessage.error(buildActionErrorMessage(error, "驳回失败，请稍后重试"));
+  }
 }
 
 async function toggleVisibility(row: ReflectionItem) {
@@ -748,7 +796,11 @@ async function toggleVisibility(row: ReflectionItem) {
     await refreshAll();
   } catch (error) {
     console.error(error);
-    ElMessage.error("未审核通过的内容不能直接展示");
+    ElMessage.error(
+      buildActionErrorMessage(error, "展示状态更新失败", {
+        cannot_show_unapproved_reflection: "未审核通过的内容不能直接展示",
+      }),
+    );
   }
 }
 
@@ -759,7 +811,7 @@ async function toggleTop(row: ReflectionItem) {
     await refreshAll();
   } catch (error) {
     console.error(error);
-    ElMessage.error("置顶状态更新失败");
+    ElMessage.error(buildActionErrorMessage(error, "置顶状态更新失败"));
   }
 }
 
@@ -770,17 +822,26 @@ async function toggleFeatured(row: ReflectionItem) {
     await refreshAll();
   } catch (error) {
     console.error(error);
-    ElMessage.error("精选状态更新失败");
+    ElMessage.error(buildActionErrorMessage(error, "精选状态更新失败"));
   }
 }
 
 async function removeReflection(id: number) {
-  await ElMessageBox.confirm("删除后不可恢复，确定继续吗？", "删除确认", {
-    type: "warning",
-  });
-  await apiClient.delete(`/admin/reflections/${id}`);
-  ElMessage.success("已删除");
-  await refreshAll();
+  try {
+    await ElMessageBox.confirm("删除后不可恢复，确定继续吗？", "删除确认", {
+      type: "warning",
+    });
+    await apiClient.delete(`/admin/reflections/${id}`);
+    ElMessage.success("已删除");
+    await refreshAll();
+  } catch (error) {
+    if (isRequestCanceled(error)) {
+      return;
+    }
+
+    console.error(error);
+    ElMessage.error(buildActionErrorMessage(error, "删除失败，请稍后重试"));
+  }
 }
 
 async function handleMoreAction(row: ReflectionItem, command: MoreAction) {

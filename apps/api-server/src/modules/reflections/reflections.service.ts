@@ -22,6 +22,7 @@ import { UpsertTeachingProjectDto } from "./dto/upsert-teaching-project.dto";
 export class ReflectionsService {
   private readonly publicDisplaySettingId = 1;
   private readonly reflectionViewDedupMinutes = 30;
+  private readonly publicSubmitDedupMinutes = 10;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -203,6 +204,38 @@ export class ReflectionsService {
     }
 
     return reflectionType;
+  }
+
+  private async findRecentPublicDuplicateSubmission(
+    studentName: string,
+    reflectionTitle: string,
+    submitContent: string,
+    reflectionTypeId: number,
+    teachingProjectId?: number,
+  ) {
+    const cutoff = new Date(
+      Date.now() - this.publicSubmitDedupMinutes * 60 * 1000,
+    );
+
+    return this.prisma.reflection.findFirst({
+      where: {
+        studentName,
+        reflectionTitle,
+        submitContent,
+        submitChannel: "website_form",
+        reflectionTypeId: BigInt(reflectionTypeId),
+        teachingProjectId: teachingProjectId ? BigInt(teachingProjectId) : null,
+        createdAt: {
+          gte: cutoff,
+        },
+      },
+      orderBy: [{ createdAt: "desc" }],
+      select: {
+        id: true,
+        auditStatus: true,
+        displayStatus: true,
+      },
+    });
   }
 
   private async validateAdminReflectionMeta(
@@ -587,6 +620,18 @@ export class ReflectionsService {
     }
 
     await this.validatePublicReflectionMeta(dto.reflection_type_id, dto.teaching_project_id);
+
+    const duplicateSubmission = await this.findRecentPublicDuplicateSubmission(
+      studentName,
+      reflectionTitle,
+      content,
+      dto.reflection_type_id,
+      dto.teaching_project_id,
+    );
+
+    if (duplicateSubmission) {
+      throw new ConflictException("duplicate_public_submission");
+    }
 
     const reflection = await this.prisma.reflection.create({
       data: {

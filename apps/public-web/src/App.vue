@@ -623,7 +623,13 @@ async function submitReflection() {
     submitFeedback.value = "提交成功，内容会在管理员审核通过后展示。";
   } catch (error) {
     console.error(error);
-    submitFeedback.value = "提交失败，请稍后再试。";
+    const apiMessage = (
+      error as { response?: { data?: { message?: string } } }
+    )?.response?.data?.message;
+    submitFeedback.value =
+      apiMessage === "duplicate_public_submission"
+        ? "检测到短时间内重复提交，请不要重复点击，等待管理员审核即可。"
+        : "提交失败，请稍后再试。";
   } finally {
     submitLoading.value = false;
   }
