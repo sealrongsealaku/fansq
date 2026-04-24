@@ -1,37 +1,136 @@
 # FanSQ
 
-互联网支教教学反思墙系统项目骨架。
+FanSQ is a reflection wall system for collecting, reviewing, and showcasing teaching reflections through a public web portal, an admin dashboard, and an internal QQ bot bridge.
 
-当前仓库包含：
+## What It Includes
 
-- `apps/admin-web` 管理后台前端
-- `apps/public-web` 前台反思墙前端
-- `apps/api-server` 后端业务服务
-- `apps/qq-bot` QQ 机器人接入服务
-- `packages/shared-types` 共享类型
-- `packages/shared-utils` 共享工具
+- `apps/public-web`: public reflection wall built with Vue 3 + Vite
+- `apps/admin-web`: admin review and management dashboard built with Vue 3 + Element Plus
+- `apps/api-server`: NestJS + Prisma backend service
+- `apps/qq-bot`: QQ bot bridge for internal submission flows
+- `packages/*`: shared workspace packages
 
-## 本地启动
+## Core Features
 
-1. 安装依赖：`npm install`
-2. 生成管理员密码哈希：`npm run admin:hash -- 你的密码`
-3. 按 `.env.example` 创建本地 `.env.local`
-4. 准备 MySQL，并按 [database/schema/README.md](/D:/FanSQ/database/schema/README.md) 初始化数据库
-5. 启动后台前端：`npm run dev:admin`
-6. 启动前台前端：`npm run dev:public`
-7. 启动后端：`npm run dev:api`
-8. 启动机器人：`npm run dev:bot`
+- Public reflection submission with title, content, category, and teaching project
+- Reflection review workflow with approve, reject, visibility, featured, and top controls
+- Public reflection wall with search, likes, reading panel, and mobile-friendly layout
+- Reflection view tracking with backend-controlled display settings
+- Duplicate public submission guard for short repeated submissions
+- Clearer admin action error feedback for approve, reject, top, featured, and delete flows
 
-## 当前后端已实现
+## Tech Stack
 
-1. `GET /api/health`
-2. `POST /api/admin/login`
-3. `GET /api/admin/me`
-4. `POST /api/admin/logout`
-5. `POST /api/internal/reflections/qq-submit`
-6. `GET /api/admin/reflections`
-7. `GET /api/admin/reflections/:id`
-8. `GET /api/public/reflections`
-9. `GET /api/public/summary`
-10. `POST /api/public/reflections/:id/like`
-11. `GET /api/public/reflections/:id/like-status`
+- Frontend: Vue 3, Vite, Element Plus
+- Backend: NestJS, Prisma
+- Database: MySQL
+- Runtime: Node.js 22+, npm 10+
+
+## Monorepo Structure
+
+```text
+fansq/
+  apps/
+    admin-web/
+    api-server/
+    public-web/
+    qq-bot/
+  packages/
+  database/
+  deploy/
+```
+
+## Requirements
+
+- Node.js `>= 22`
+- npm `>= 10`
+- MySQL
+
+## Install
+
+```bash
+npm install
+```
+
+## Useful Scripts
+
+At repo root:
+
+```bash
+npm run dev:admin
+npm run dev:public
+npm run dev:api
+npm run dev:bot
+
+npm run build
+npm run check
+npm run admin:hash -- "your-password"
+```
+
+Workspace-specific examples:
+
+```bash
+npm run prisma:generate -w @fansq/api-server
+npm run prisma:db:push -w @fansq/api-server
+npm run prisma:studio -w @fansq/api-server
+```
+
+## Local Development
+
+1. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Create local environment files from the provided examples as needed.
+
+3. Prepare MySQL and configure the backend database connection.
+
+4. Generate Prisma client and sync schema:
+
+   ```bash
+   npm run prisma:generate -w @fansq/api-server
+   npm run prisma:db:push -w @fansq/api-server
+   ```
+
+5. Start services in separate terminals:
+
+   ```bash
+   npm run dev:api
+   npm run dev:public
+   npm run dev:admin
+   npm run dev:bot
+   ```
+
+## Production Notes
+
+Typical deployment in this project uses:
+
+- API service behind PM2
+- Nginx to serve built frontend assets
+- static public site and admin site from separate build outputs
+
+Common deployment flow:
+
+```bash
+npm install
+npm run build
+pm2 restart fansq-api
+```
+
+Then copy:
+
+- `apps/public-web/dist/*` to your public static directory
+- `apps/admin-web/dist/*` to your admin static directory
+
+## Recent Stability Improvements
+
+- Added duplicate submission protection for public form posts
+- Improved admin error handling for failed moderation and management actions
+- Improved mobile usability for the admin review experience
+- Added reflection titles and richer search coverage
+
+## License
+
+This repository currently does not declare an open-source license.
