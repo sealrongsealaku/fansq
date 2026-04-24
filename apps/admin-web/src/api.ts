@@ -3,7 +3,7 @@ import axios from "axios";
 const tokenKey = "fansq_admin_token";
 
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "/api",
 });
 
 apiClient.interceptors.request.use((config) => {
@@ -25,4 +25,3 @@ export function clearAdminToken() {
 export function getAdminToken() {
   return localStorage.getItem(tokenKey);
 }
-
