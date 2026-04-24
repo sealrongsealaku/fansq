@@ -4,6 +4,7 @@ const visitorStorageKey = "fansq_visitor_id";
 
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "/api",
+  timeout: 15000,
 });
 
 function createVisitorId() {

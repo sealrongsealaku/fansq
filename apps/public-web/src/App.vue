@@ -623,13 +623,20 @@ async function submitReflection() {
     submitFeedback.value = "提交成功，内容会在管理员审核通过后展示。";
   } catch (error) {
     console.error(error);
-    const apiMessage = (
-      error as { response?: { data?: { message?: string } } }
-    )?.response?.data?.message;
+    const requestError = error as {
+      code?: string;
+      message?: string;
+      response?: { data?: { message?: string } };
+    };
+    const apiMessage = requestError.response?.data?.message;
     submitFeedback.value =
       apiMessage === "duplicate_public_submission"
         ? "检测到短时间内重复提交，请不要重复点击，等待管理员审核即可。"
-        : "提交失败，请稍后再试。";
+        : apiMessage === "submit_temporarily_unavailable"
+          ? "当前提交通道繁忙，请稍后刷新页面确认是否已提交成功后再重试。"
+        : requestError.code === "ECONNABORTED"
+          ? "提交超时，请稍后刷新页面确认是否已提交成功后再重试。"
+          : "提交失败，请稍后再试。";
   } finally {
     submitLoading.value = false;
   }

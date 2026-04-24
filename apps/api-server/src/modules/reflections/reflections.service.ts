@@ -2,7 +2,9 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
@@ -20,11 +22,50 @@ import { UpsertTeachingProjectDto } from "./dto/upsert-teaching-project.dto";
 
 @Injectable()
 export class ReflectionsService {
+  private readonly logger = new Logger(ReflectionsService.name);
   private readonly publicDisplaySettingId = 1;
   private readonly reflectionViewDedupMinutes = 30;
   private readonly publicSubmitDedupMinutes = 10;
+  private readonly publicSubmitTimeoutMs = 15000;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  private async runWithTimeout<T>(
+    operation: string,
+    action: () => Promise<T>,
+    timeoutMs = this.publicSubmitTimeoutMs,
+  ) {
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
+    try {
+      return await Promise.race([
+        action(),
+        new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(() => {
+            reject(new ServiceUnavailableException("submit_temporarily_unavailable"));
+          }, timeoutMs);
+        }),
+      ]);
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException) {
+        this.logger.warn(`Public submit timed out during ${operation}`);
+      }
+      throw error;
+    } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+    }
+  }
+
+  private isTransientPrismaSubmitError(error: unknown) {
+    return (
+      (error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === "P1017" || error.code === "P2024")) ||
+      error instanceof Prisma.PrismaClientInitializationError ||
+      error instanceof Prisma.PrismaClientUnknownRequestError
+    );
+  }
 
   private async ensurePublicDisplaySetting() {
     return this.prisma.publicDisplaySetting.upsert({
@@ -619,46 +660,62 @@ export class ReflectionsService {
       throw new BadRequestException("reflection_title_required");
     }
 
-    await this.validatePublicReflectionMeta(dto.reflection_type_id, dto.teaching_project_id);
+    try {
+      await this.runWithTimeout("validatePublicReflectionMeta", () =>
+        this.validatePublicReflectionMeta(dto.reflection_type_id, dto.teaching_project_id),
+      );
 
-    const duplicateSubmission = await this.findRecentPublicDuplicateSubmission(
-      studentName,
-      reflectionTitle,
-      content,
-      dto.reflection_type_id,
-      dto.teaching_project_id,
-    );
+      const duplicateSubmission = await this.runWithTimeout(
+        "findRecentPublicDuplicateSubmission",
+        () =>
+          this.findRecentPublicDuplicateSubmission(
+            studentName,
+            reflectionTitle,
+            content,
+            dto.reflection_type_id,
+            dto.teaching_project_id,
+          ),
+      );
 
-    if (duplicateSubmission) {
-      throw new ConflictException("duplicate_public_submission");
+      if (duplicateSubmission) {
+        throw new ConflictException("duplicate_public_submission");
+      }
+
+      const reflection = await this.runWithTimeout("createPublicReflection", () =>
+        this.prisma.reflection.create({
+          data: {
+            studentName,
+            reflectionTitle,
+            submitContent: content,
+            submitTime: new Date(),
+            submitChannel: "website_form",
+            reflectionTypeId: BigInt(dto.reflection_type_id),
+            teachingProjectId: dto.teaching_project_id
+              ? BigInt(dto.teaching_project_id)
+              : null,
+            auditStatus: "pending",
+            displayStatus: "hidden",
+            isAnonymous: dto.is_anonymous ?? false,
+          },
+        }),
+      );
+
+      return {
+        success: true,
+        message: "submitted",
+        data: {
+          id: Number(reflection.id),
+          audit_status: reflection.auditStatus,
+          display_status: reflection.displayStatus,
+        },
+      };
+    } catch (error) {
+      if (this.isTransientPrismaSubmitError(error)) {
+        this.logger.warn("Public submit failed because Prisma was temporarily unavailable");
+        throw new ServiceUnavailableException("submit_temporarily_unavailable");
+      }
+      throw error;
     }
-
-    const reflection = await this.prisma.reflection.create({
-      data: {
-        studentName,
-        reflectionTitle,
-        submitContent: content,
-        submitTime: new Date(),
-        submitChannel: "website_form",
-        reflectionTypeId: BigInt(dto.reflection_type_id),
-        teachingProjectId: dto.teaching_project_id
-          ? BigInt(dto.teaching_project_id)
-          : null,
-        auditStatus: "pending",
-        displayStatus: "hidden",
-        isAnonymous: dto.is_anonymous ?? false,
-      },
-    });
-
-    return {
-      success: true,
-      message: "submitted",
-      data: {
-        id: Number(reflection.id),
-        audit_status: reflection.auditStatus,
-        display_status: reflection.displayStatus,
-      },
-    };
   }
 
   async getAdminList(query: AdminListReflectionsDto) {
