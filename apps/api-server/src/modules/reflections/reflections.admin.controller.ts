@@ -146,4 +146,12 @@ export class ReflectionsAdminController {
   ) {
     return this.reflectionsService.deleteReflection(id, user.sub);
   }
+
+  @Post(":id/delete")
+  removeByPost(
+    @Param("id", ParseIntPipe) id: number,
+    @CurrentUser() user: AdminJwtPayload,
+  ) {
+    return this.reflectionsService.deleteReflection(id, user.sub);
+  }
 }

@@ -118,7 +118,7 @@
 
             <div class="mobile-review-content">
               <strong class="content-title">{{ row.reflection_title || "未命名反思" }}</strong>
-              <p>{{ row.submit_content }}</p>
+              <p>{{ row.submit_content || "点击详情查看正文" }}</p>
             </div>
 
             <div class="mobile-review-footer">
@@ -174,7 +174,7 @@
             <template #default="{ row }">
               <div class="content-preview">
                 <strong class="content-title">{{ row.reflection_title || "未命名反思" }}</strong>
-                <span>{{ row.submit_content }}</span>
+                <span>{{ row.submit_content || "点击详情查看正文" }}</span>
               </div>
             </template>
           </el-table-column>
@@ -831,7 +831,7 @@ async function removeReflection(id: number) {
     await ElMessageBox.confirm("删除后不可恢复，确定继续吗？", "删除确认", {
       type: "warning",
     });
-    await apiClient.delete(`/admin/reflections/${id}`);
+    await apiClient.post(`/admin/reflections/${id}/delete`);
     ElMessage.success("已删除");
     await refreshAll();
   } catch (error) {
